@@ -1,0 +1,43 @@
+#1
+Install Windows VM with Qemu Guest Tools activate Guest Tools on Proxmox ;-)
+
+#2
+Copy "kvm.bat" file form ZIP to C:/Windows/System32
+
+#3 Commands for PVE Node of VM 999 is VM ID
+
+###############################
+Host
+###############################
+// Change the Hostname and FQDN
+qm guest exec 999 kvm hostname vm999 yourdomain.com
+
+// Change the Password form User Account Administrator
+qm guest exec 999 kvm password Administrator YourPassword
+
+// Reboot Windows VM
+qm guest exec 999 kvm reboot
+
+###############################
+Network IPv4
+###############################
+// IPv4 Adresse
+qm guest exec 999 kvm ipv4 192.168.1.10 255.255.255.0
+
+// IPv4 Gateway
+qm guest exec 999 kvm ipv4_gw 192.168.1.1
+
+// IPv4 DNS
+qm guest exec 999 kvm ipv4_dns 8.8.8.8
+
+###############################
+Network IPv6
+###############################
+// IPv6 Adresse
+qm guest exec 999 kvm ipv6 2001:1111:2222:3333::100 64
+
+// IPv6 Gateway
+qm guest exec 999 kvm ipv6_gw 2001:1111:2222:3333::1
+
+// IPv6 DNS
+qm guest exec 999 kvm ipv6_dns 2001:4860:4860::8888

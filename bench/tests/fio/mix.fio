@@ -1,0 +1,22 @@
+# This job file tries to mimic the Intel IOMeter File Server Access Pattern
+[global]
+description=Emulation of Intel IOmeter File Server Access Pattern
+
+[iometer]
+directory=/mnt/test1/ad112/
+bssplit=512/22:1k/15:2k/8:4k/23:8k/15:16k/2:32k/6:64k/7:128k/1:512k/1
+
+rw=randrw
+rwmixread=80
+direct=1
+size=90g
+ioengine=libaio
+# IOMeter defines the server loads as the following:
+# iodepth=1	Linear
+# iodepth=4	Very Light
+# iodepth=8	Light
+# iodepth=64	Moderate
+# iodepth=256	Heavy
+iodepth=256
+buffered=0
+group_reporting

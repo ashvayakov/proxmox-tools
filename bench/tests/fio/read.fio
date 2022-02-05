@@ -1,0 +1,13 @@
+[global]
+description=read 4k
+
+[iometer]
+directory=/mnt/test1/ad112/
+
+rw=read
+direct=1
+size=90g
+ioengine=libaio
+iodepth=256
+buffered=0
+group_reporting

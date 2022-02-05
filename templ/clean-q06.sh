@@ -70,7 +70,7 @@ echo "Debian"
 apt install ifupdown -y
 systemctl stop apparmor
 systemctl disable apparmor
-apt remove --assume-yes --purge apparmor
+#apt remove --assume-yes --purge apparmor
 
 apt install subnetcalc -y
 apt install network-manager -y
@@ -278,6 +278,8 @@ fi
 if [ $1 = "hostname" ]
         then
         hostnamectl set-hostname ${2}.${3}
+        postconf -e myhostname="$(hostname -f)"
+        postconf -e mydestination="$(hostname -f), localhost"
         echo "Hostname is now: ${2}.${3}"
 fi
 #############################################################
@@ -287,6 +289,30 @@ if [ $1 = "cid" ]
         systemctl stop cloud-init
         systemctl mask cloud-init
         echo "cloud-init disabled"
+fi
+#############################################################
+
+#############################################################
+if [ $1 = "supdate" ]
+        then
+        wget http://my.keyweb.ru/pve/kvm -O /usr/sbin/kvm
+        chown root:root /usr/sbin/kvm
+        chmod +x /usr/sbin/kvm
+        echo "The script updated"
+fi
+#############################################################
+
+#############################################################
+if [ $1 = "nextcloud" ]
+        then
+        PATH="$PATH:/snap/bin"
+        PASS="$2"
+        HNAME="$3"
+        ADDR="$(hostname -I)"
+        nextcloud.manual-install admin ${PASS}
+        nextcloud.occ config:system:set trusted_domains 1 --value=${HNAME}
+        nextcloud.occ config:system:set trusted_domains 2 --value=${ADDR}
+        nextcloud.enable-https self-signed
 fi
 #############################################################
 

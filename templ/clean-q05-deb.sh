@@ -70,7 +70,7 @@ echo "Debian"
 apt install ifupdown -y
 systemctl stop apparmor
 systemctl disable apparmor
-apt remove --assume-yes --purge apparmor
+#apt remove --assume-yes --purge apparmor
 
 apt install subnetcalc -y
 apt install network-manager -y
@@ -287,6 +287,16 @@ if [ $1 = "cid" ]
         systemctl stop cloud-init
         systemctl mask cloud-init
         echo "cloud-init disabled"
+fi
+#############################################################
+
+#############################################################
+if [ $1 = "supdate" ]
+        then
+        wget http://my.keyweb.ru/pve/kvm -O /usr/sbin/kvm
+        chown root:root /usr/sbin/kvm
+        chmod +x /usr/sbin/kvm
+        echo "The script updated"
 fi
 #############################################################
 

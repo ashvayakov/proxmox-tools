@@ -10,11 +10,10 @@ echo "Now cleaning up files and removing UUIDs"
 #clean up cached yum files
 yum clean all
 yum install -y NetworkManager ipcalc
-yum install -y qemu-guest-agent
-
-systemctl enable NetworkManager
-systemctl restart NetworkManager
+#systemctl disable NetworkManager
+#systemctl stop NetworkManager
  
+yum install -y qemu-guest-agent
 
  sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
  sed -i 's/SELINUX=permissive/SELINUX=disabled/' /etc/selinux/config
@@ -67,15 +66,14 @@ fi
 if [ -f /etc/debian_version ]
         then
 echo "Debian"
-apt install ifupdown -y
 systemctl stop apparmor
 systemctl disable apparmor
 apt remove --assume-yes --purge apparmor
 
 apt install subnetcalc -y
 apt install network-manager -y
-systemctl enable network-manager
-systemctl start network-manager
+#systemctl enable network-manager
+#systemctl start network-manager
 
 
 #Stop services for cleanup
@@ -150,6 +148,47 @@ fi
 cat << 'EOL' | sudo tee /usr/sbin/kvm
 #!/bin/bash
 
+if [ -f /etc/redhat-release ]
+	then
+		if [ -f /usr/bin/nmcli ]
+	
+			then
+			echo "nmcli ok"
+			else
+			yum install -y NetworkManager
+            yum install -y qemu-guest-agent
+		fi
+        systemctl enable NetworkManager
+       
+		systemctl disable cloud-init	
+		systemctl stop cloud-init
+        rm -f /etc/NetworkManager/conf.d/99*
+        systemctl restart NetworkManager
+        sleep 5s	
+
+
+
+fi
+
+if [ -f /etc/debian_version ]
+	then
+               	if [ -f /usr/bin/subnetcalc ]
+               		then
+			echo "subnetcalc ok"
+			else
+          		apt install subnetcalc -y
+               	fi
+
+ 		if [ -f /usr/bin/nmcli ]
+	
+			then
+			echo "nmcli ok"
+			else
+			yum install network-manager -y 
+		fi	      
+       
+               	
+fi
 #############################################################
 
 
@@ -163,44 +202,49 @@ if [ $1 = ipv4 ]
 		if [ -f /etc/redhat-release ]
 			then
 			PREF=$(ipcalc -p $2 $3 | sed -n 's/^PREFIX=\(.*\)/\/\1/p')
-            rm -f /etc/NetworkManager/conf.d/99* 2>/dev/null 
-            systemctl restart NetworkManager 
 			else
 			PREF=$(subnetcalc $2 $3 -n  | sed -n '/^Netw/{s#.*/ #/#p;q}')
-            
-            mkdir /root/tmp	2>/dev/null            
-            mv /etc/netplan/* /root/tmp/ 2>/dev/null
-            mv /etc/network/interfaces /etc/network/interfaces.bak 2>/dev/null   
-            echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg 2>/dev/null 
-            echo -e "[keyfile]\nunmanaged-devices=none\n" > /usr/lib/NetworkManager/conf.d/11-fix-managed-devices.conf 2>/dev/null 
-            sed -i 's/managed=false/managed=true/g' /etc/NetworkManager/NetworkManager.conf 2>/dev/null 
-            echo -e "[keyfile]\nunmanaged-devices=none" > /usr/lib/NetworkManager/conf.d/10-globally-managed-devices.conf 2>/dev/null 
-            systemctl stop systemd-networkd.socket systemd-networkd networkd-dispatcher systemd-networkd-wait-online 2>/dev/null 
-            systemctl disable systemd-networkd.socket systemd-networkd networkd-dispatcher systemd-networkd-wait-online 2>/dev/null 
-            systemctl mask systemd-networkd.socket systemd-networkd networkd-dispatcher systemd-networkd-wait-online 2>/dev/null 
-            systemctl unmask networking 2>/dev/null 
-            systemctl enable networking 2>/dev/null 
-            systemctl restart networking 2>/dev/null 
-            systemctl restart network-manager 
+            systemctl enable network-manager
+            systemctl start network-manager
+            #mv /etc/network/interfaces /etc/network/interfaces.bak
+		    apt install ifupdown -y
+            systemctl disable cloud-init	
+		    systemctl stop cloud-init
+            systemctl mask cloud-init
+            mkdir /root/tmp	            
+            mv /etc/netplan/* /root/tmp/
+            echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+            echo -e "[keyfile]\nunmanaged-devices=none\n" > /usr/lib/NetworkManager/conf.d/11-fix-managed-devices.conf
+            sed -i 's/managed=false/managed=true/g' /etc/NetworkManager/NetworkManager.conf
+            echo -e "[keyfile]\nunmanaged-devices=none" > /usr/lib/NetworkManager/conf.d/10-globally-managed-devices.conf
+            systemctl stop systemd-networkd.socket systemd-networkd networkd-dispatcher systemd-networkd-wait-online
+            systemctl disable systemd-networkd.socket systemd-networkd networkd-dispatcher systemd-networkd-wait-online
+            systemctl mask systemd-networkd.socket systemd-networkd networkd-dispatcher systemd-networkd-wait-online
+            systemctl unmask networking
+            systemctl enable networking
+            systemctl restart networking
+            systemctl restart network-manager && sleep 2s
 
 		fi
-        rm -f /etc/NetworkManager/conf.d/99* 2>/dev/null	
+	
 		PRT1=$(nmcli -f DEVICE d s | grep -v DEVICE | sort -f | head -1)
  
  
-		IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
+		IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
 		if [ -z "$IF_NAME" ]
 		then
 			nmcli con add type ethernet con-name "$PRT1" ifname $PRT1 
-			nmcli c mod "${$PRT1}" ipv4.method manual ipv4.addresses ${2}${PREF}
-		    nmcli con down "${IF_NAME}"
-		    nmcli con up "${IF_NAME}"
-		    echo "IP: "$(nmcli -f ipv4.dns,ipv4.addresses,ipv4.gateway con show "${IF_NAME}")""
+			#dddystemctl restart networking && sleep 5s	
+			#systemctl restart network-manager && sleep 5s	
+		    nmcli c mod "${$PRT1}" ipv4.method manual ipv4.addresses ${2}${PREF}
+		    nmcli con down ${IF_NAME}
+		    nmcli con up ${IF_NAME}
+		    echo "IP: "$(nmcli -f ipv4.dns,ipv4.addresses,ipv4.gateway con show ${IF_NAME})""
         else
-		    nmcli c mod "${IF_NAME}" ipv4.method manual ipv4.addresses ${2}${PREF}
-		    nmcli con down "${IF_NAME}"
-		    nmcli con up "${IF_NAME}"
-		    echo "IP: "$(nmcli -f ipv4.addresses,ipv4.gateway con show "${IF_NAME}")""
+		    nmcli c mod ${IF_NAME} ipv4.method manual ipv4.addresses ${2}${PREF}
+		    nmcli con down ${IF_NAME}
+		    nmcli con up ${IF_NAME}
+		    echo "IP: "$(nmcli -f ipv4.addresses,ipv4.gateway con show ${IF_NAME})""
         fi
 fi
 
@@ -213,11 +257,11 @@ if [ $1 = ipv4_add ]
 			else
 			PREF=$(subnetcalc $2 $3 -n  | sed -n '/^Netw/{s#.*/ #/#p;q}')
         fi
-		IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
-		nmcli c mod "${IF_NAME}" ipv4.method manual +ipv4.addresses ${2}${PREF}
-		nmcli con down "${IF_NAME}"
-		nmcli con up "${IF_NAME}"
-		echo "IP: "$(nmcli -f ipv4.addresses,ipv4.gateway con show "${IF_NAME}")""
+		IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
+		nmcli c mod ${IF_NAME} ipv4.method manual +ipv4.addresses ${2}${PREF}
+		nmcli con down ${IF_NAME}
+		nmcli con up ${IF_NAME}
+		echo "IP: "$(nmcli -f ipv4.addresses,ipv4.gateway con show ${IF_NAME})""
 fi
 
 
@@ -225,10 +269,10 @@ fi
 if [ $1 = ipv6 ]
 	then
 
-		IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
-		nmcli c mod "${IF_NAME}" ipv6.method manual ipv6.addresses ${2}/${3}
-		nmcli con down "${IF_NAME}"
-		nmcli con up "${IF_NAME}"
+		IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
+		nmcli c mod ${IF_NAME} ipv6.method manual ipv6.addresses ${2}/${3}
+		nmcli con down ${IF_NAME}
+		nmcli con up ${IF_NAME}
 		echo "IPv6: ${2}/${3}"
 fi
 
@@ -237,29 +281,29 @@ fi
 if [ $1 = "ipv4_dns" ]
 	then
 
-	IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
-	nmcli con mod "${IF_NAME}" +ipv4.dns $2
-	nmcli con down "${IF_NAME}"
-	nmcli con up "${IF_NAME}"
-	echo "DNS: "$(nmcli -f ipv4.dns con show "${IF_NAME}")""
+	IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
+	nmcli con mod ${IF_NAME} +ipv4.dns $2
+	nmcli con down ${IF_NAME}
+	nmcli con up ${IF_NAME}
+	echo "DNS: "$(nmcli -f ipv4.dns con show ${IF_NAME})""
 fi
 #############################################################
 if [ $1 = "ipv4_gw" ]
 	then	
-	IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
-	nmcli con mod "${IF_NAME}" ipv4.gateway $2
-	nmcli con down "${IF_NAME}"
-	nmcli con up "${IF_NAME}"
-	echo "IPv4 Gateway: echo IP: "$(nmcli -f ipv4.gateway con show "${IF_NAME}")""
+	IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
+	nmcli con mod ${IF_NAME} ipv4.gateway $2
+	nmcli con down ${IF_NAME}
+	nmcli con up ${IF_NAME}
+	echo "IPv4 Gateway: echo IP: "$(nmcli -f ipv4.gateway con show ${IF_NAME})""
 fi
 
 #############################################################
 if [ $1 = "ipv6_gw" ]
 	then
-	IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
-	nmcli con mod "${IF_NAME}" ipv6.gateway $2
-	nmcli con down "${IF_NAME}"
-	nmcli con up "${IF_NAME}"
+	IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
+	nmcli con mod ${IF_NAME} ipv6.gateway $2
+	nmcli con down ${IF_NAME}
+	nmcli con up ${IF_NAME}
 	echo "IPv6 Gateway: $2"
 fi
 #
@@ -267,10 +311,10 @@ fi
 
 if [ $1 = "ipv6_dns" ]
 	then	
-	IF_NAME="$(nmcli -f CONNECTION d | grep -v "CONNECTION\|--" | sort -f | head -1| sed 's/ *$//g')"
-	nmcli con mod "${IF_NAME}" +ipv6.dns $2
-	nmcli con down "${IF_NAME}"
-	nmcli con up "${IF_NAME}"
+	IF_NAME="$(nmcli -f NAME c | grep -v NAME | sort -f | head -1)"
+	nmcli con mod ${IF_NAME} +ipv6.dns $2
+	nmcli con down ${IF_NAME}
+	nmcli con up ${IF_NAME}
 	echo "IPv4 DNS: $2"
 fi
 #
@@ -279,14 +323,6 @@ if [ $1 = "hostname" ]
         then
         hostnamectl set-hostname ${2}.${3}
         echo "Hostname is now: ${2}.${3}"
-fi
-#############################################################
-if [ $1 = "cid" ]
-        then
-        systemctl disable cloud-init	
-        systemctl stop cloud-init
-        systemctl mask cloud-init
-        echo "cloud-init disabled"
 fi
 #############################################################
 
